@@ -143,7 +143,8 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  // the bit in (x & ~y) will be 1 iff x_i = 1 and y_i = 0
+  return (x & ~y) | (~x & y);
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -152,9 +153,8 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+  // the minimum is 0x80000000
+  return 1 << 31;
 }
 //2
 /*
@@ -165,7 +165,9 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  // The essence of exclusive or is to check whether two numbers are different.
+  x = x ^ 0x7fffffff;
+  return !x;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +178,11 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  // step 1: using and to clean all unnecessay bit
+  // step 2: using ^ to check whether it satisfy the condition
+  x = x & 0xAAAAAAAA;
+  x = x ^ 0xAAAAAAAA;;
+  return !x;
 }
 /* 
  * negate - return -x 
@@ -186,7 +192,11 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  // Fact: In 32-bit integers, if we look only at the lower 31 bits (let's call this x'),
+  // then x' + ~x' equals the sum of all bits set in 31 bits, i.e., 2^31 - 1.
+  // So, in one's complement, -x is just ~x.
+  // In two's complement (which most systems use), -x is ~x + 1.
+  return ~x+1;
 }
 //3
 /* 
@@ -231,7 +241,8 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  // fact: x=0 and -x=0 iff x=0
+  return !(((x) | (~x+1)) >> 31);
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
