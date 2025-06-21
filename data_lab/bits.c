@@ -196,6 +196,7 @@ int negate(int x) {
   // then x' + ~x' equals the sum of all bits set in 31 bits, i.e., 2^31 - 1.
   // So, in one's complement, -x is just ~x.
   // In two's complement (which most systems use), -x is ~x + 1.
+  // edge case: 0x80000000
   return ~x+1;
 }
 //3
@@ -209,7 +210,13 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  // 0x40-x > 0 and x-0x2f >0
+  // edge case: 0x80000000
+  int first_term = 0x40 + ((~x)+1);
+  int second_term =  x + ((~0x2f)+1);
+  first_term = first_term >> 31;
+  second_term = second_term >> 31;
+  return !(first_term | second_term);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -219,7 +226,10 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  // fact 1: x&0 = 0; x&(0x11...1) = x;
+  // fact 2: x|0 = x; x|(0x11...1) = 0x11...1;
+  int mask = (!x) << 31 >> 31; 
+  return (y & ~mask) | (z & mask);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -229,6 +239,7 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
+
   return 2;
 }
 //4
@@ -257,7 +268,15 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  // Observation 1: The number of bits required is one more than the position of the highest 1-bit.
+  // Observation 2: if we look only at the lower 31 bits (let's call this x'), then x' + ~x' equals the sum of all bits set in 31 bits, i.e., 2^31 - 1.
+  // Observation 3: For a k-bit two's complement number, a binary pattern like 111...1_j 000...0 — where the top j bits are all 1s followed by zeros — represents the value -2^j. This means that once we reach the first 0 after a run of leading 1s (for negative numbers), any additional leading 1s don’t change the value. Therefore, we can ignore or compress those redundant leading 1s when counting the number of bits needed to represent the number.
+  // trick : 0|x = x; 0xfff...f&x =x
+  int sign = x >> 31;
+  x = (~sign & x) | (sign & ~x);
+
+  b16 = 
+  return 2;
 }
 //float
 /* 
@@ -287,7 +306,28 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  int sign = uf >> 31;
+  int exp = (uf >> 23) & 0x000000FF;
+  int frac = (uf & 0x007FFFFF) << 9;
+  if(!exp){
+    return 0x80000000u;
+  }
+  else{
+    int answer=1;
+    int frac_mask = 0x80000000;
+    while(exp){
+      exp -= 1;
+      answer << 1;
+      if((frac&frac_mask)){
+        answer = answer+1;
+      }
+    }
+    if(sign){
+      answer = answer*(-1);
+    }
+
+    return answer;
+  }
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
