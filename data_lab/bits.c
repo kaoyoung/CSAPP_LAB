@@ -213,8 +213,8 @@ int isAsciiDigit(int x) {
   // 0x39-x >= 0 and x-0x30 >= 0
   // We use 0 as the critereion because the most signigicant bit (MSB) of 0 is 0, while the MSB of -1 is 1
   // edge case: 0x80000000
-  int upper_bound = 0x40 + ((~x)+1);
-  int lower_bound =  x + ((~0x2f)+1);
+  int upper_bound = 0x39 + ((~x)+1);
+  int lower_bound =  x + ((~0x30)+1);
 
   upper_bound = upper_bound >> 31;
   lower_bound = lower_bound >> 31;
@@ -248,7 +248,9 @@ int isLessOrEqual(int x, int y) {
   int x_largest_bit = !!(x >> 31);
   int y_largest_bit = !!(y >> 31);
       
-  return (!(answer>>31) & (x_largest_bit^y_largest_bit)) | x_largest_bit;
+  answer = !(answer>>31);
+  int not_overflow = !(x_largest_bit^y_largest_bit); 
+  return (answer & (not_overflow)) | (x_largest_bit & ~(not_overflow));
 }
 //4
 /* 
@@ -286,19 +288,19 @@ int howManyBits(int x) {
   // using binary search
   int b16, b8, b4, b2, b1, b0;
   b16 = !!(x>>16) << 4;
-  x = x << b16;
+  x = x >> b16;
 
   b8 = !!(x>>8) << 3;
-  x = x << b8;
+  x = x >> b8;
 
   b4 = !!(x>>4) << 2;
-  x = x << b4;
+  x = x >> b4;
 
   b2 = !!(x>>2) << 1;
-  x = x << b2;
+  x = x >> b2;
 
   b1 = !!(x>>1);
-  x = x << b1;
+  x = x >> b1;
 
   b0 = x;
   
@@ -317,14 +319,35 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  int sign = !!(uf>>31);
+  // in c: int used two's complement representation for storing signed integers.
+  int sign = uf & 0x80000000;
   int exp = (uf>>23) & 0xff;
   int frac = (uf & 0x7fffff);
 
-  if(exp )
+  // denormalize
+  if(!exp){
+    int carry = frac >> 22;
+    if(carry){
+      exp += 1;      
+    }
+    
+    frac <<= 1;
+    return sign | (exp << 23) | frac;
+  }
 
+  // normalize
+  else{
+    // NaN and infinity
+    if(!(exp^0xff)){
+      return uf;
+    }
 
-  return 2;
+    exp += 1;
+    if(!(exp^0xff)){
+      frac &= 0;
+    }
+    return sign | (exp << 23) | frac; 
+  }
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -340,8 +363,8 @@ unsigned floatScale2(unsigned uf) {
  */
 int floatFloat2Int(unsigned uf) {
   // in c: float follow the regulation of IEEE 754, while int follows the two's complement
-  int sign = !!(uf >> 31);
-  int exp = (uf >> 23) & 0xFF - 127;
+  int negative = !!(uf>>31);
+  int exp = ((uf >> 23) & 0xFF) - 127;
   int number = (uf & 0x7FFFFF) | 0x800000;
 
   if(exp > 31){
@@ -351,8 +374,18 @@ int floatFloat2Int(unsigned uf) {
     return 0;
   }
   else{
-    return number << exp;
+    if(exp > 23){
+      number = number << (exp-23);     
+    }
+    else{
+      number = number >> (23-exp);
+    }
   }
+
+  if(negative){
+    number = (~number) + 1;
+  }
+  return number;
   
   
 }
@@ -370,19 +403,23 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-  int exp = x - 127;
-
-  // too large
-  if(x>128){
-    return 0x7f800000; //0111_1111_1
+  // +INF
+  if(x >= 128){
+    return 0x7f800000;
   }
 
   // too small
-  if(x < -(126+23)){
+  else if(x < -149){
     return 0;
   }
-
-  // normal
-  int frac = (exp & 0x7fffff) | 0x800000;
-  return 0x0 | (frac << 23);
+  // denormalize
+  else if(x < -126){
+    int frac = 0x800000;
+    return frac >> (-x-126);
+  }
+  // normalize
+  else{
+    int exp = x+127;
+    return exp << 23;
+  }
 }
