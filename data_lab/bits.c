@@ -210,13 +210,15 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  // 0x40-x > 0 and x-0x2f >0
+  // 0x39-x >= 0 and x-0x30 >= 0
+  // We use 0 as the critereion because the most signigicant bit (MSB) of 0 is 0, while the MSB of -1 is 1
   // edge case: 0x80000000
-  int first_term = 0x40 + ((~x)+1);
-  int second_term =  x + ((~0x2f)+1);
-  first_term = first_term >> 31;
-  second_term = second_term >> 31;
-  return !(first_term | second_term);
+  int upper_bound = 0x40 + ((~x)+1);
+  int lower_bound =  x + ((~0x2f)+1);
+
+  upper_bound = upper_bound >> 31;
+  lower_bound = lower_bound >> 31;
+  return !(upper_bound | lower_bound);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -239,8 +241,14 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
+  // appling y - x>=0 but this may be overflow
+  // This problem will be solved through a case-by-case analysis.(overflow ans not overflow)
 
-  return 2;
+  int answer = y + (~x+1);
+  int x_largest_bit = !!(x >> 31);
+  int y_largest_bit = !!(y >> 31);
+      
+  return (!(answer>>31) & (x_largest_bit^y_largest_bit)) | x_largest_bit;
 }
 //4
 /* 
@@ -275,8 +283,26 @@ int howManyBits(int x) {
   int sign = x >> 31;
   x = (~sign & x) | (sign & ~x);
 
-  b16 = 
-  return 2;
+  // using binary search
+  int b16, b8, b4, b2, b1, b0;
+  b16 = !!(x>>16) << 4;
+  x = x << b16;
+
+  b8 = !!(x>>8) << 3;
+  x = x << b8;
+
+  b4 = !!(x>>4) << 2;
+  x = x << b4;
+
+  b2 = !!(x>>2) << 1;
+  x = x << b2;
+
+  b1 = !!(x>>1);
+  x = x << b1;
+
+  b0 = x;
+  
+  return b16 + b8 + b4 + b2 + b1 + b0 + 1 ;
 }
 //float
 /* 
@@ -291,6 +317,13 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
+  int sign = !!(uf>>31);
+  int exp = (uf>>23) & 0xff;
+  int frac = (uf & 0x7fffff);
+
+  if(exp )
+
+
   return 2;
 }
 /* 
@@ -306,28 +339,22 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  int sign = uf >> 31;
-  int exp = (uf >> 23) & 0x000000FF;
-  int frac = (uf & 0x007FFFFF) << 9;
-  if(!exp){
-    return 0x80000000u;
+  // in c: float follow the regulation of IEEE 754, while int follows the two's complement
+  int sign = !!(uf >> 31);
+  int exp = (uf >> 23) & 0xFF - 127;
+  int number = (uf & 0x7FFFFF) | 0x800000;
+
+  if(exp > 31){
+    return 0x80000000u;    
+  }
+  else if(exp < 0){
+    return 0;
   }
   else{
-    int answer=1;
-    int frac_mask = 0x80000000;
-    while(exp){
-      exp -= 1;
-      answer << 1;
-      if((frac&frac_mask)){
-        answer = answer+1;
-      }
-    }
-    if(sign){
-      answer = answer*(-1);
-    }
-
-    return answer;
+    return number << exp;
   }
+  
+  
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -343,5 +370,19 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+  int exp = x - 127;
+
+  // too large
+  if(x>128){
+    return 0x7f800000; //0111_1111_1
+  }
+
+  // too small
+  if(x < -(126+23)){
+    return 0;
+  }
+
+  // normal
+  int frac = (exp & 0x7fffff) | 0x800000;
+  return 0x0 | (frac << 23);
 }
